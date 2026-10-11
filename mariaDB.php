@@ -103,6 +103,168 @@ if ($pdo && !empty($config['dbname'])) {
         }
     }
 }
+
+// ============================================
+// FITUR EXPORT DATABASE (.sql)
+// ============================================
+if (isset($_GET['action']) && $_GET['action'] === 'export_db' && $pdo && !empty($config['dbname'])) {
+    $dbName = $config['dbname'];
+    $filename = $dbName . '_' . date('Ymd_His') . '.sql';
+
+    header('Content-Type: application/sql');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    echo "-- ============================================\n";
+    echo "-- Export Database: `$dbName`\n";
+    echo "-- Tanggal: " . date('Y-m-d H:i:s') . "\n";
+    echo "-- Host: {$config['host']}:{$config['port']}\n";
+    echo "-- ============================================\n\n";
+    echo "SET FOREIGN_KEY_CHECKS=0;\n";
+    echo "SET SQL_MODE = \"NO_AUTO_VALUE_ON_ZERO\";\n";
+    echo "SET time_zone = \"+00:00\";\n\n";
+
+    try {
+        $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+
+        foreach ($tables as $table) {
+            $tableEsc = "`" . str_replace("`", "``", $table) . "`";
+
+            // Struktur tabel
+            $createStmt = $pdo->query("SHOW CREATE TABLE $tableEsc")->fetch();
+            echo "--\n-- Struktur tabel `$table`\n--\n";
+            echo "DROP TABLE IF EXISTS $tableEsc;\n";
+            echo $createStmt['Create Table'] . ";\n\n";
+
+            // Data tabel
+            $rows = $pdo->query("SELECT * FROM $tableEsc")->fetchAll();
+            if ($rows) {
+                echo "--\n-- Data tabel `$table` (" . count($rows) . " baris)\n--\n";
+                foreach ($rows as $row) {
+                    $cols = array_map(function($c) { return "`" . str_replace("`", "``", $c) . "`"; }, array_keys($row));
+                    $vals = array_map(function($v) use ($pdo) {
+                        if ($v === null) return "NULL";
+                        return $pdo->quote($v);
+                    }, array_values($row));
+                    echo "INSERT INTO $tableEsc (" . implode(", ", $cols) . ") VALUES (" . implode(", ", $vals) . ");\n";
+                }
+                echo "\n";
+            }
+        }
+
+        echo "SET FOREIGN_KEY_CHECKS=1;\n";
+        echo "-- Selesai\n";
+    } catch (PDOException $e) {
+        // Kalau error di tengah jalan, tetap keluar dengan pesan
+        echo "\n-- ERROR: " . $e->getMessage() . "\n";
+    }
+    exit;
+}
+
+// ============================================
+// FITUR EXPORT TABEL (.sql)
+// ============================================
+if (isset($_GET['action']) && $_GET['action'] === 'export_table' && isset($_GET['table']) && $pdo && !empty($config['dbname'])) {
+    $table = $_GET['table'];
+    $tableEsc = "`" . str_replace("`", "``", $table) . "`";
+    $dbName = $config['dbname'];
+    $filename = $dbName . '_' . $table . '_' . date('Ymd_His') . '.sql';
+
+    header('Content-Type: application/sql');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    echo "-- ============================================\n";
+    echo "-- Export Tabel: `$table` dari DB `$dbName`\n";
+    echo "-- Tanggal: " . date('Y-m-d H:i:s') . "\n";
+    echo "-- ============================================\n\n";
+    echo "SET FOREIGN_KEY_CHECKS=0;\n\n";
+
+    try {
+        $createStmt = $pdo->query("SHOW CREATE TABLE $tableEsc")->fetch();
+        echo "DROP TABLE IF EXISTS $tableEsc;\n";
+        echo $createStmt['Create Table'] . ";\n\n";
+
+        $rows = $pdo->query("SELECT * FROM $tableEsc")->fetchAll();
+        if ($rows) {
+            echo "-- Data tabel `$table` (" . count($rows) . " baris)\n";
+            foreach ($rows as $row) {
+                $cols = array_map(function($c) { return "`" . str_replace("`", "``", $c) . "`"; }, array_keys($row));
+                $vals = array_map(function($v) use ($pdo) {
+                    if ($v === null) return "NULL";
+                    return $pdo->quote($v);
+                }, array_values($row));
+                echo "INSERT INTO $tableEsc (" . implode(", ", $cols) . ") VALUES (" . implode(", ", $vals) . ");\n";
+            }
+            echo "\n";
+        }
+
+        echo "SET FOREIGN_KEY_CHECKS=1;\n";
+        echo "-- Selesai\n";
+    } catch (PDOException $e) {
+        echo "\n-- ERROR: " . $e->getMessage() . "\n";
+    }
+    exit;
+}
+
+// ============================================
+// FITUR IMPORT DATABASE (.sql)
+// ============================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_db']) && $pdo && !empty($config['dbname'])) {
+    if (!isset($_FILES['sql_file']) || $_FILES['sql_file']['error'] !== UPLOAD_ERR_OK) {
+        $error = 'Gagal upload file. Pastikan file .sql sudah dipilih.';
+    } else {
+        $fileTmp = $_FILES['sql_file']['tmp_name'];
+        $fileName = $_FILES['sql_file']['name'];
+        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+        if ($ext !== 'sql') {
+            $error = 'Hanya file .sql yang diizinkan.';
+        } elseif ($_FILES['sql_file']['size'] > 20 * 1024 * 1024) {
+            $error = 'Ukuran file maksimal 20 MB.';
+        } else {
+            try {
+                $sqlContent = file_get_contents($fileTmp);
+                if ($sqlContent === false) {
+                    throw new Exception('Gagal membaca file.');
+                }
+
+                // Hapus komentar baris dan komentar blok
+                $sqlContent = preg_replace('/^\s*--.*$/m', '', $sqlContent);
+                $sqlContent = preg_replace('/^\s*#.*$/m', '', $sqlContent);
+
+                // Split per statement (; di akhir baris)
+                $statements = array_filter(
+                    array_map('trim', explode(";\n", $sqlContent . "\n")),
+                    function($s) { return $s !== ''; }
+                );
+
+                $executed = 0;
+                $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
+                foreach ($statements as $stmt) {
+                    $stmt = trim($stmt);
+                    if ($stmt === '') continue;
+                    // Skip statement yang hanya berisi komentar
+                    if (preg_match('/^(\/\*|--|#)/', $stmt)) continue;
+                    try {
+                        $pdo->exec($stmt);
+                        $executed++;
+                    } catch (PDOException $e) {
+                        // Lanjutkan walau ada error per-statement
+                        $error = "Beberapa statement gagal: " . htmlspecialchars($e->getMessage());
+                    }
+                }
+                $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
+
+                $successMsg = "✅ Import selesai. <b>$executed</b> statement berhasil dieksekusi.";
+            } catch (Exception $e) {
+                $error = 'Import gagal: ' . htmlspecialchars($e->getMessage());
+            }
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -136,6 +298,16 @@ if ($pdo && !empty($config['dbname'])) {
         .db-card { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; text-decoration: none; color: #1e293b; font-weight: bold; text-align: center; transition: 0.2s; }
         .db-card:hover { background: #3b82f6; color: #fff; border-color: #2563eb; }
         .db-card.active { background: #1e293b; color: #fff; border-color: #0f172a; }
+
+        /* Panel Export / Import */
+        .io-panel { display:flex; flex-wrap:wrap; gap:15px; margin-top:20px; padding:15px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; }
+        .io-panel .io-box { flex:1; min-width:250px; padding:12px; background:#fff; border:1px solid #e2e8f0; border-radius:5px; }
+        .io-panel .io-box h4 { margin-top:0; margin-bottom:10px; }
+        .btn-blue { background:#2563eb; color:#fff; }
+        .btn-blue:hover { background:#1d4ed8; }
+        .btn-orange { background:#ea580c; color:#fff; }
+        .btn-orange:hover { background:#c2410c; }
+        input[type="file"] { padding:6px; border:1px solid #ccc; border-radius:4px; background:#fff; width:100%; box-sizing:border-box; margin-bottom:8px; }
     </style>
 </head>
 <body>
@@ -214,6 +386,34 @@ if ($pdo && !empty($config['dbname'])) {
         <!-- Jika Database Sudah Dipilih -->
         <?php if (!empty($config['dbname'])): ?>
             <hr style="margin-top:25px;">
+
+            <!-- ============================================ -->
+            <!-- PANEL EXPORT / IMPORT (FITUR BARU) -->
+            <!-- ============================================ -->
+            <h3>📦 Export &amp; Import Database</h3>
+            <div class="io-panel">
+                <!-- Export Database -->
+                <div class="io-box">
+                    <h4>⬇️ Export Database</h4>
+                    <p style="font-size:13px; color:#555;">Download seluruh struktur &amp; data dari database <b><?= htmlspecialchars($config['dbname']) ?></b> dalam format <code>.sql</code>.</p>
+                    <a href="?action=export_db" class="btn btn-blue">💾 Download .sql</a>
+                </div>
+
+                <!-- Import Database -->
+                <div class="io-box">
+                    <h4>⬆️ Import Database</h4>
+                    <p style="font-size:13px; color:#555;">Upload file <code>.sql</code> untuk dieksekusi ke database <b><?= htmlspecialchars($config['dbname']) ?></b>. Maks 20 MB.</p>
+                    <form method="POST" enctype="multipart/form-data" onsubmit="return confirm('Yakin import file ini? Pastikan sudah backup terlebih dahulu.');">
+                        <input type="file" name="sql_file" accept=".sql" required>
+                        <button type="submit" name="import_db" class="btn btn-orange">📥 Upload &amp; Import</button>
+                    </form>
+                </div>
+            </div>
+            <!-- ============================================ -->
+            <!-- END PANEL EXPORT / IMPORT -->
+            <!-- ============================================ -->
+
+            <hr style="margin-top:25px;">
             
             <!-- Daftar Tabel -->
             <h3>📋 Tabel di Database: <u><?= htmlspecialchars($config['dbname']) ?></u></h3>
@@ -240,12 +440,20 @@ if ($pdo && !empty($config['dbname'])) {
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:25px;">
                     <h4>Data Tabel: <code><?= htmlspecialchars($currentTable) ?></code> (Limit 50)</h4>
                     
-                    <!-- TOMBOL HAPUS SEMUA DATA -->
-                    <a href="?view_table=<?= urlencode($currentTable) ?>&action=truncate_table&table=<?= urlencode($currentTable) ?>" 
-                       class="btn btn-danger" 
-                       onclick="return confirm('⚠️ PERINGATAN BERSYARAT:\nApakah Anda yakin ingin MENGHAPUS SEMUA DATA di tabel \'<?= htmlspecialchars($currentTable) ?>\'?\n\nData yang dihapus TIDAK DAPAT DIKEMBALIKAN!');">
-                       🗑️ Hapus Semua Data (Empty Table)
-                    </a>
+                    <div style="display:flex; gap:8px;">
+                        <!-- TOMBOL EXPORT TABEL (FITUR BARU) -->
+                        <a href="?action=export_table&table=<?= urlencode($currentTable) ?>" 
+                           class="btn btn-blue">
+                           ⬇️ Export Tabel (.sql)
+                        </a>
+
+                        <!-- TOMBOL HAPUS SEMUA DATA -->
+                        <a href="?view_table=<?= urlencode($currentTable) ?>&action=truncate_table&table=<?= urlencode($currentTable) ?>" 
+                           class="btn btn-danger" 
+                           onclick="return confirm('⚠️ PERINGATAN BERSYARAT:\nApakah Anda yakin ingin MENGHAPUS SEMUA DATA di tabel \'<?= htmlspecialchars($currentTable) ?>\'?\n\nData yang dihapus TIDAK DAPAT DIKEMBALIKAN!');">
+                           🗑️ Hapus Semua Data (Empty Table)
+                        </a>
+                    </div>
                 </div>
 
                 <?php
