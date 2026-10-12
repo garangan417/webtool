@@ -1,0 +1,3 @@
+[2026-10-12 04:50:13] system | INFO | action=test.manual | target=logs.php | ip=cli | detail={"note":"testing dari CLI"}
+[2026-10-12 05:22:17] system | INFO | action=site.create | target=test-mafaza-local.conf | ip=cli | detail={"domain":"test-mafaza-local.conf","backup":null}
+[2026-10-12 10:52:15] system | INFO | action=site.delete | target=test-mafaza-local.conf | ip=cli | detail={"backup":"/var/www/tool/nginx-manager/storage/backups/test-mafaza-local.conf.20261012-105215.bak"}

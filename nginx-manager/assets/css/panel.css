@@ -1,0 +1,319 @@
+/* =========================================================
+   Nginx Manager - Panel CSS
+   Style kustom di atas Bootstrap 5.3.3
+   ========================================================= */
+
+:root {
+    --panel-bg: #f3f4f6;
+    --panel-primary: #2563eb;
+    --panel-primary-dark: #1d4ed8;
+    --panel-radius: 12px;
+    --panel-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+}
+
+body {
+    background: var(--panel-bg);
+    font-size: 14px;
+    min-height: 100vh;
+}
+
+/* ---------- Login Page ---------- */
+.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.login-box {
+    background: white;
+    border-radius: var(--panel-radius);
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .08);
+}
+
+.login-box .brand {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.login-box .brand h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: #111827;
+}
+
+.login-box .brand p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.login-box .form-control {
+    padding: 10px 14px;
+    border-radius: 8px;
+}
+
+.login-box .btn-primary {
+    padding: 10px;
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+/* ---------- Topbar ---------- */
+.topbar {
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 14px 0;
+    margin-bottom: 24px;
+}
+
+.topbar-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.topbar .brand {
+    font-weight: 700;
+    font-size: 17px;
+    color: #111827;
+    text-decoration: none;
+}
+
+.topbar .brand span {
+    color: var(--panel-primary);
+}
+
+.topbar nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.topbar nav a {
+    color: #4b5563;
+    text-decoration: none;
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background .15s, color .15s;
+}
+
+.topbar nav a:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.topbar nav a.active {
+    background: #eff6ff;
+    color: var(--panel-primary);
+}
+
+.topbar .user-box {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.topbar .user-box strong {
+    color: #111827;
+    font-weight: 600;
+}
+
+/* ---------- Content ---------- */
+.content {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px 40px;
+}
+
+.page-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 6px;
+    color: #111827;
+}
+
+.page-subtitle {
+    color: #6b7280;
+    font-size: 13px;
+    margin: 0 0 24px;
+}
+
+/* ---------- Card ---------- */
+.card {
+    border: none;
+    border-radius: var(--panel-radius);
+    box-shadow: var(--panel-shadow);
+}
+
+.card-header {
+    background: white;
+    border-bottom: 1px solid #f3f4f6;
+    padding: 16px 20px;
+    font-weight: 600;
+    border-radius: var(--panel-radius) var(--panel-radius) 0 0 !important;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+/* ---------- Stat Card ---------- */
+.stat-card {
+    background: white;
+    border-radius: var(--panel-radius);
+    padding: 18px 20px;
+    box-shadow: var(--panel-shadow);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.stat-card .icon {
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.stat-card .icon.blue   { background: #dbeafe; }
+.stat-card .icon.green  { background: #dcfce7; }
+.stat-card .icon.amber  { background: #fef3c7; }
+.stat-card .icon.red    { background: #fee2e2; }
+
+.stat-card .label {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    margin-bottom: 2px;
+}
+
+.stat-card .value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+}
+
+/* ---------- Badge helpers ---------- */
+.badge-soft-green  { background: #dcfce7; color: #166534; }
+.badge-soft-red    { background: #fee2e2; color: #991b1b; }
+.badge-soft-amber  { background: #fef3c7; color: #92400e; }
+.badge-soft-blue   { background: #dbeafe; color: #1e40af; }
+.badge-soft-gray   { background: #f3f4f6; color: #4b5563; }
+
+.badge-soft-green,
+.badge-soft-red,
+.badge-soft-amber,
+.badge-soft-blue,
+.badge-soft-gray {
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ---------- Table ---------- */
+.table-panel {
+    margin: 0;
+    font-size: 13.5px;
+}
+
+.table-panel th {
+    background: #f9fafb;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: .04em;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 10px 14px;
+}
+
+.table-panel td {
+    padding: 12px 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.table-panel tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.table-panel tbody tr:hover {
+    background: #fafafa;
+}
+
+/* ---------- Empty state ---------- */
+.empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: #6b7280;
+}
+
+.empty-state .icon {
+    font-size: 44px;
+    margin-bottom: 12px;
+    opacity: .5;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* ---------- Log list ---------- */
+.log-entry {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 13px;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.log-entry .time {
+    color: #9ca3af;
+    font-size: 12px;
+    font-family: ui-monospace, monospace;
+}
+
+.log-entry .action {
+    font-weight: 600;
+    color: #111827;
+}
+
+.log-entry .detail {
+    color: #6b7280;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 600px) {
+    .topbar-inner {
+        flex-wrap: wrap;
+    }
+
+    .topbar nav {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .content {
+        padding: 0 14px 30px;
+    }
+}

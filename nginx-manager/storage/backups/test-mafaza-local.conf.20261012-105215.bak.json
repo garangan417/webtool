@@ -1,0 +1,7 @@
+{
+    "source": "\/etc\/nginx\/sites-managed\/test-mafaza-local.conf",
+    "backup": "\/var\/www\/tool\/nginx-manager\/storage\/backups\/test-mafaza-local.conf.20261012-105215.bak",
+    "size": 741,
+    "created_at": 1791802335,
+    "sha256": "dac7fb3d7157affaaab244262169de35519de16aa73000a37cd9a0f5d16fc627"
+}

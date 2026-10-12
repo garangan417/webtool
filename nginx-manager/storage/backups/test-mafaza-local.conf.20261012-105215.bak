@@ -1,0 +1,30 @@
+# ============================================================
+# Managed by Nginx Manager
+# Domain    : test.mafaza.local
+# Created   : 2026-10-12 05:22:17
+# ============================================================
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name test.mafaza.local;
+
+    root /var/www/html;
+    index index.php index.html index.htm;
+
+    access_log /var/log/nginx/test.mafaza.local.access.log;
+    error_log  /var/log/nginx/test.mafaza.local.error.log;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
