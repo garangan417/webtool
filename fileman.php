@@ -16,7 +16,7 @@ if (isset($_POST['login_pass'])) {
 
 if (isset($_GET['logout'])) {
     session_destroy();
-    header("Location: index.php");
+     header("Location: " . basename(__FILE__));
     exit;
 }
 
@@ -61,6 +61,14 @@ if (empty($_SESSION['logged_in'])) {
             button { width: 100%; padding: 0.6rem; background: var(--primary); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; }
             button:hover { background: var(--primary-hover); }
             .theme-toggle { position: absolute; top: 1rem; right: 1rem; background: none; border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; width: auto; }
+
+        /* Find & Replace Panel */
+        .find-panel { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; background: var(--hover-bg); padding: 0.6rem; border-radius: 4px; border: 1px solid var(--border); margin-bottom: 0.5rem; }
+        .find-panel input { padding: 0.3rem 0.6rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem; outline: none; min-width: 150px; flex: 1; }
+        .find-panel button { padding: 0.3rem 0.7rem; font-size: 0.8rem; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); cursor: pointer; }
+        .find-panel button:hover { background: var(--hover-bg); }
+        .find-panel .match-info { font-size: 0.75rem; color: var(--muted); min-width: 80px; text-align: center; }
+
         </style>
     </head>
     <body>
@@ -101,7 +109,7 @@ if (empty($_SESSION['logged_in'])) {
 }
 
 // --- LOGIK DIREKTORI & KEAMANAN ---
-$dir = isset($_GET['dir']) ? $_GET['dir'] : ROOT_DIR;
+$dir = isset($_REQUEST['dir']) ? $_REQUEST['dir'] : ROOT_DIR;
 $dir = realpath($dir);
 
 if ($dir === false || strpos($dir, ROOT_DIR) !== 0) {
@@ -158,12 +166,34 @@ function addDirToZip($zip, $dirPath, $zipPath) {
 // --- AKSI (ACTION HANDLER) ---
 $msg = '';
 
+// Notifikasi upload sukses (via redirect)
+if (isset($_GET['uploaded'])) {
+    $msg = "File berhasil diunggah!";
+}
+
+// Handle upload file
 if (isset($_FILES['upload_file'])) {
-    $target = $dir . DIRECTORY_SEPARATOR . basename($_FILES['upload_file']['name']);
-    if (move_uploaded_file($_FILES['upload_file']['tmp_name'], $target)) {
-        $msg = "File berhasil diunggah!";
+    if ($_FILES['upload_file']['error'] === UPLOAD_ERR_OK) {
+        $fileName = basename($_FILES['upload_file']['name']);
+        $target = $dir . DIRECTORY_SEPARATOR . $fileName;
+        if (move_uploaded_file($_FILES['upload_file']['tmp_name'], $target)) {
+            header("Location: " . basename(__FILE__) . "?dir=" . urlencode($dir) . "&uploaded=1");
+            exit;
+        } else {
+            $msg = "Gagal mengunggah file. Periksa izin folder: " . htmlspecialchars($dir);
+        }
     } else {
-        $msg = "Gagal mengunggah file.";
+        $errCode = $_FILES['upload_file']['error'];
+        $errMsg = [
+            UPLOAD_ERR_INI_SIZE => 'File terlalu besar (melebihi upload_max_filesize)',
+            UPLOAD_ERR_FORM_SIZE => 'File terlalu besar (melebihi MAX_FILE_SIZE)',
+            UPLOAD_ERR_PARTIAL => 'File hanya ter-upload sebagian',
+            UPLOAD_ERR_NO_FILE => 'Tidak ada file yang di-upload',
+            UPLOAD_ERR_NO_TMP_DIR => 'Folder temporary tidak ditemukan',
+            UPLOAD_ERR_CANT_WRITE => 'Gagal menulis file ke disk',
+            UPLOAD_ERR_EXTENSION => 'Upload dihentikan oleh ekstensi PHP',
+        ];
+        $msg = "Upload error: " . ($errMsg[$errCode] ?? "Kode error $errCode");
     }
 }
 
@@ -317,7 +347,7 @@ if (isset($_GET['delete'])) {
         } else {
             unlink($target);
         }
-        header("Location: index.php?dir=" . urlencode($dir));
+        header("Location: " . basename(__FILE__) . "?dir=" . urlencode($dir));
         exit;
     }
 }
@@ -445,8 +475,9 @@ function listDirs($base, $rel = '') {
     <!-- Toolbar Aksi -->
     <div class="toolbar">
         <form method="POST" enctype="multipart/form-data" class="form-group">
+            <input type="hidden" name="dir" value="<?= htmlspecialchars($dir) ?>">
             <input type="file" name="upload_file" required>
-            <button type="submit" class="btn btn-primary">Upload</button>
+            <button type="submit" class="btn btn-primary">📤 Upload</button>
         </form>
         <form method="POST" class="form-group">
             <input type="hidden" name="action" value="new_folder">
@@ -481,7 +512,7 @@ function listDirs($base, $rel = '') {
         </form>
     </div>
 
-    <!-- Mode Edit File -->
+       <!-- Mode Edit File -->
     <?php if (isset($_GET['edit'])): 
         $editPath = realpath($_GET['edit']);
         if ($editPath && strpos($editPath, ROOT_DIR) === 0 && is_file($editPath)):
@@ -489,14 +520,158 @@ function listDirs($base, $rel = '') {
     ?>
         <div class="card">
             <h3 style="margin-bottom: 0.5rem;">Edit: <?= htmlspecialchars(basename($editPath)) ?></h3>
-            <form method="POST">
+
+            <!-- Panel Find & Replace -->
+            <div class="find-panel">
+                <input type="text" id="findInput" placeholder="🔍 Cari..." onkeydown="if(event.key==='Enter'){event.preventDefault();findNext();}">
+                <button type="button" onclick="findPrev()">↑ Prev</button>
+                <button type="button" onclick="findNext()">↓ Next</button>
+                <span class="match-info" id="matchInfo">0/0</span>
+                <input type="text" id="replaceInput" placeholder="↔ Ganti dengan...">
+                <button type="button" onclick="replaceOne()">Ganti</button>
+                <button type="button" onclick="replaceAll()">Ganti Semua</button>
+            </div>
+
+            <form method="POST" id="editForm">
                 <input type="hidden" name="action" value="save_file">
                 <input type="hidden" name="file_path" value="<?= htmlspecialchars($editPath) ?>">
-                <textarea name="content"><?= htmlspecialchars($content) ?></textarea>
+                <textarea name="content" id="editorArea" spellcheck="false"><?= htmlspecialchars($content) ?></textarea>
                 <button type="submit" class="btn btn-primary">Simpan</button>
                 <a href="?dir=<?= urlencode($dir) ?>" class="btn btn-secondary">Batal</a>
             </form>
         </div>
+
+        <script>
+        (function() {
+            const ta = document.getElementById('editorArea');
+            const findInput = document.getElementById('findInput');
+            const replaceInput = document.getElementById('replaceInput');
+            const matchInfo = document.getElementById('matchInfo');
+            let lastIndex = 0;
+
+            // Hitung total match
+            function countMatches() {
+                const q = findInput.value;
+                if (!q) { matchInfo.innerText = '0/0'; return 0; }
+                const text = ta.value;
+                let count = 0, pos = 0;
+                while ((pos = text.indexOf(q, pos)) !== -1) { count++; pos += q.length; }
+                return count;
+            }
+
+            // Cari index match ke-n dari posisi tertentu
+            function findFrom(startIdx, direction) {
+                const q = findInput.value;
+                if (!q) return -1;
+                const text = ta.value;
+                if (direction === 'next') {
+                    let idx = text.indexOf(q, startIdx);
+                    if (idx === -1) idx = text.indexOf(q, 0); // wrap
+                    return idx;
+                } else {
+                    let idx = text.lastIndexOf(q, startIdx);
+                    if (idx === -1) idx = text.lastIndexOf(q); // wrap
+                    return idx;
+                }
+            }
+
+            // Highlight match di textarea (pakai selection)
+            function selectRange(start, end) {
+                ta.focus();
+                ta.setSelectionRange(start, end);
+                // Scroll ke posisi (perkiraan baris)
+                const textBefore = ta.value.substring(0, start);
+                const lineNum = textBefore.split('\n').length;
+                const lineHeight = 20;
+                ta.scrollTop = Math.max(0, (lineNum - 5) * lineHeight);
+            }
+
+            function updateMatchInfo(currentIdx) {
+                const total = countMatches();
+                if (total === 0) { matchInfo.innerText = '0/0'; return; }
+                const q = findInput.value;
+                const text = ta.value;
+                let count = 0, pos = 0, found = 0;
+                while ((pos = text.indexOf(q, pos)) !== -1) {
+                    count++;
+                    if (pos === currentIdx) found = count;
+                    pos += q.length;
+                }
+                matchInfo.innerText = (found || 1) + '/' + total;
+            }
+
+            window.findNext = function() {
+                const q = findInput.value;
+                if (!q) return;
+                const start = ta.selectionEnd;
+                const idx = findFrom(start, 'next');
+                if (idx !== -1) {
+                    selectRange(idx, idx + q.length);
+                    updateMatchInfo(idx);
+                    lastIndex = idx;
+                }
+            };
+
+            window.findPrev = function() {
+                const q = findInput.value;
+                if (!q) return;
+                const start = ta.selectionStart - 1;
+                const idx = findFrom(start, 'prev');
+                if (idx !== -1) {
+                    selectRange(idx, idx + q.length);
+                    updateMatchInfo(idx);
+                    lastIndex = idx;
+                }
+            };
+
+            window.replaceOne = function() {
+                const q = findInput.value;
+                const r = replaceInput.value;
+                if (!q) return;
+                // Kalau selection saat ini match, ganti
+                const selStart = ta.selectionStart;
+                const selEnd = ta.selectionEnd;
+                const selected = ta.value.substring(selStart, selEnd);
+                if (selected === q) {
+                    ta.setRangeText(r, selStart, selEnd, 'select');
+                    findNext();
+                } else {
+                    findNext();
+                }
+            };
+
+            window.replaceAll = function() {
+                const q = findInput.value;
+                const r = replaceInput.value;
+                if (!q) return;
+                const total = countMatches();
+                if (total === 0) { alert('Tidak ada match.'); return; }
+                if (!confirm('Ganti semua ' + total + ' kemunculan?')) return;
+                ta.value = ta.value.split(q).join(r);
+                updateMatchInfo(-1);
+                matchInfo.innerText = '0/0';
+            };
+
+            // Update counter saat query berubah
+            findInput.addEventListener('input', () => {
+                const total = countMatches();
+                matchInfo.innerText = total > 0 ? '1/' + total : '0/0';
+            });
+
+            // Ctrl+F fokus ke input find
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                    e.preventDefault();
+                    findInput.focus();
+                    findInput.select();
+                }
+                if (e.key === 'F3') {
+                    e.preventDefault();
+                    if (e.shiftKey) findPrev(); else findNext();
+                }
+            });
+        })();
+        </script>
     <?php endif; endif; ?>
 
     <!-- Tabel Daftar File & Folder -->
